@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>과목별 공부 시간 플래너 & 투두 체크리스트</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 크롬, 사파리 등의 스크롤바 숨김/최적화 */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased pb-20">
+
+    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl transition-all duration-300 transform scale-0 opacity-0 bg-slate-900 text-white">
+        <i class="fa-solid fa-wand-magic-sparkles text-amber-300 animate-pulse"></i>
+        <span id="toast-message" class="font-medium text-sm">알림 메시지</span>
+    </div>
+
+    <header class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white py-10 px-4 shadow-md relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+        <div class="absolute -bottom-10 left-10 w-60 h-60 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between relative z-10 gap-6">
+            <div>
+                <div class="inline-flex items-center gap-1.5 bg-indigo-500/20 border border-indigo-500/30 text-indigo-200 text-xs px-3 py-1 rounded-full font-semibold uppercase tracking-wider mb-3">
+                    <i class="fa-solid fa-sparkles text-amber-400"></i> Focus-Time Study Planner
+                </div>
+                <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight">과목별 공부 시간 플래너</h1>
+                <p class="text-slate-300 mt-2 text-sm md:text-base">매일의 공부 시간 누적과 '오늘 꼭 해야 할 일' 체크리스트를 관리하세요.</p>
+            </div>
+            <div class="flex flex-wrap gap-3 items-center">
+                <button id="btn-mock-data" onclick="loadMockData()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs px-4 py-2.5 rounded-lg shadow transition flex items-center gap-1.5 active:scale-95">
+                    <i class="fa-solid fa-sparkles"></i> 샘플 데이터 채우기
+                </button>
+                <button onclick="resetAllData()" class="bg-slate-800/80 hover:bg-rose-950/80 hover:border-rose-800/40 border border-slate-700/60 text-slate-300 hover:text-rose-200 font-medium text-xs px-4 py-2.5 rounded-lg transition flex items-center gap-1.5 active:scale-95">
+                    <i class="fa-solid fa-rotate-left"></i> 전체 데이터 리셋
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <section class="lg:col-span-5 flex flex-col gap-6">
+            <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm flex flex-col gap-5">
+                <div class="border-b border-slate-100 pb-3">
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-regular fa-calendar-days text-indigo-600"></i> 학습 계획 & 시간 입력
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-1">오늘 진행한 과목별 학습 시간과 투두 리스트를 입력하세요.</p>
+                </div>
+
+                <div class="flex flex-col gap-5">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                          <label class="block text-xs font-semibold text-slate-600 mb-1.5">날짜 선택</label>
+                          <input type="date" id="input-date" onchange="handleDateChange()" required class="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition font-medium">
+                        </div>
+                        <div>
+                          <label class="block text-xs font-semibold text-slate-600 mb-1.5">요일 자동 감지</label>
+                          <input type="text" id="input-day" readonly class="w-full text-sm bg-slate-100 border border-slate-200 text-slate-600 rounded-xl px-3 py-2.5 font-bold cursor-not-allowed">
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-3">
+                        <label class="block text-xs font-semibold text-slate-600">과목별 학습 시간 (단위: 시간)</label>
+                        
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-rose-100 bg-rose-50 gap-2.5">
+                            <div class="flex items-center gap-2">
+                                <div class="p-1.5 rounded-lg bg-rose-500 text-white shadow-xs"><i class="fa-solid fa-book-open text-xs"></i></div>
+                                <span class="font-bold text-slate-900 text-xs">국어</span>
+                            </div>
+                            <div class="flex items-center gap-1 ml-auto sm:ml-0">
+                                <button type="button" onclick="adjustTime('korean', -0.5)" class="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-600 font-bold hover:bg-slate-100 text-[11px]">-0.5</button>
+                                <div class="relative flex items-center max-w-[75px]">
+                                    <input type="number" id="time-korean" step="0.1" min="0" placeholder="0" class="w-full text-center font-extrabold text-slate-900 text-xs border border-slate-200 bg-white rounded-lg py-1 focus:ring-1 focus:ring-indigo-500">
+                                    <span class="absolute right-1.5 text-[9px] font-semibold text-slate-400">h</span>
+                                </div>
+                                <button type="button" onclick="adjustTime('korean', 0.5)" class="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-100 text-[10px]">+30분</button>
+                                <button type="button" onclick="adjustTime('korean', 1.0)" class="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-100 text-[10px]">+1시간</button>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-indigo-100 bg-indigo-50 gap-2.5">
+                            <div class="flex items-center gap-2">
+                                <div class="p-1.5 rounded-lg bg-indigo-500 text-white shadow-xs"><i class="fa-solid fa-globe text-xs"></i></div>
+                                <span class="font-bold text-slate-900 text-xs">영어</span>
+                            </div>
+                            <div class="flex items-center gap-1 ml-auto sm:ml-0">
+                                <button type="button" onclick="adjustTime('english', -0.5)" class="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-600 font-bold hover:bg-slate-100 text-[11px]">-0.5</button>
+                                <div class="relative flex items-center max-w-[75px]">
+                                    <input type="number" id="time-english" step="0.1" min="0" placeholder="0" class="w-full text-center font-extrabold text-slate-900 text-xs border border-slate-200 bg-white rounded-lg py-1 focus:ring-1 focus:ring-indigo-500">
+                                    <span class="absolute right-1.5 text-[9px] font-semibold text-slate-400">h</span>
+                                </div>
+                                <button type="button" onclick="adjustTime('english', 0.5)" class="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-100 text-[10px]">+30분</button>
+                                <button type="button" onclick="adjustTime('english', 1.0)" class="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-100 text-[10px]">+1시간</button>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-violet-100 bg-violet-50 gap-2.5">
+                            <div class="flex items-center gap-2">
+                                <div class="p-1.5 rounded-lg bg-violet-500 text-white shadow-xs"><i class="fa-solid fa-calculator text-xs"></i></div>
+                                <span class="font-bold text-slate-900 text-xs">수학</span>
+                            </div>
+                            <div class="flex items-center gap-1 ml-auto sm:ml-0">
+                                <button type="button" onclick="adjustTime('math', -0.5)" class="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-600 font-bold hover:bg-slate-100 text-[11px]">-0.5</button>
+                                <div class="relative flex items-center max-w-[75px]">
+                                    <input type="number" id="time-math" step="0.1" min="0" placeholder="0" class="w-full text-center font-extrabold text-slate-900 text-xs border border-slate-200 bg-white rounded-lg py-1 focus:ring-1 focus:ring-indigo-500">
+                                    <span class="absolute right-1.5 text-[9px] font-semibold text-slate-400">h</span>
+                                </div>
+                                <button type="button" onclick="adjustTime('math', 0.5)" class="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-100 text-[10px]">+30분</button>
+                                <button type="button" onclick="adjustTime('math', 1.0)" class="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-100 text-[10px]">+1시간</button>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border border-emerald-100 bg-emerald-50 gap-2.5">
+                            <div class="flex items-center gap-2">
+                                <div class="p-1.5 rounded-lg bg-emerald-500 text-white shadow-xs"><i class="fa-solid fa-flask text-xs"></i></div>
+                                <span class="font-bold text-slate-900 text-xs">과학</span>
+                            </div>
+                            <div class="flex items-center gap-1 ml-auto sm:ml-0">
+                                <button type="button" onclick="adjustTime('science', -0.5)" class="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-600 font-bold hover:bg-slate-100 text-[11px]">-0.5</button>
+                                <div class="relative flex items-center max-w-[75px]">
+                                    <input type="number" id="time-science" step="0.1" min="0" placeholder="0" class="w-full text-center font-extrabold text-slate-900 text-xs border border-slate-200 bg-white rounded-lg py-1 focus:ring-1 focus:ring-indigo-500">
+                                    <span class="absolute right-1.5 text-[9px] font-semibold text-slate-400">h</span>
+                                </div>
+                                <button type="button" onclick="adjustTime('science', 0.5)" class="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-100 text-[10px]">+30분</button>
+                                <button type="button" onclick="adjustTime('science', 1.0)" class="px-2 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-medium hover:bg-slate-100 text-[10px]">+1시간</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-slate-100 pt-4 flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <label class="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                <i class="fa-solid fa-list-check text-indigo-600"></i> 오늘 꼭 해야할 일
+                            </label>
+                            <span id="todo-badge" class="hidden text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-full">완료 0/0개</span>
+                        </div>
+
+                        <div class="flex gap-2">
+                            <input type="text" id="todo-input" placeholder="할 일을 입력하고 추가 버튼을 누르세요..." class="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+                            <button type="button" onclick="addTodoItem()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center gap-1 active:scale-95 shrink-0">
+                                <i class="fa-solid fa-plus"></i> 추가
+                            </button>
+                        </div>
+
+                        <div id="todo-list-container" class="flex flex-col gap-1.5 max-h-44 overflow-y-auto mt-1 p-1">
+                            </div>
+                    </div>
+
+                    <button type="button" onclick="submitLogData()" class="w-full mt-2 bg-slate-900 hover:bg-indigo-950 text-white font-bold py-3.5 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-md hover:shadow-lg active:scale-[0.98]">
+                        <i class="fa-solid fa-plus text-indigo-400"></i> 하루 공부 시간 &amp; 투두 기록 완료
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-br from-indigo-900 to-slate-900 text-white rounded-2xl p-6 shadow-sm flex flex-col gap-4 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-xl pointer-events-none"></div>
+                <div class="flex items-center justify-between">
+                    <span class="text-indigo-200 text-xs font-bold tracking-wide uppercase">Total Study Insight</span>
+                    <i class="fa-solid fa-chart-line text-emerald-400"></i>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span id="panel-overall-hours" class="text-4xl font-black text-white">0</span>
+                    <span class="text-indigo-200 text-sm font-semibold">총 공부 시간 누적</span>
+                </div>
+                <p id="panel-summary-text" class="text-xs text-slate-300 leading-relaxed">기록된 총 학습 데이터가 없습니다.</p>
+            </div>
+        </section>
+
+        <section class="lg:col-span-7 flex flex-col gap-6">
+            
+            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-bar text-indigo-600"></i> 학습 시간 누적 대시보드
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">과목별로 축적된 실질적 성장 지표를 확인하세요.</p>
+                    </div>
+
+                    <div class="flex bg-slate-100 p-1 rounded-xl shrink-0">
+                        <button onclick="switchTab('total')" id="tab-total" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-white text-slate-900 shadow-xs">
+                            전체 과목별 누적
+                        </button>
+                        <button onclick="switchTab('weekly')" id="tab-weekly" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-500 hover:text-slate-800">
+                            일주일 단위 누적
+                        </button>
+                    </div>
+                </div>
+
+                <div id="content-tab-total" class="mt-6">
+                    <div id="total-stats-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        </div>
+                </div>
+
+                <div id="content-tab-weekly" class="mt-6 hidden">
+                    <div id="weekly-stats-list" class="flex flex-col gap-6">
+                        </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 flex flex-col gap-4">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-regular fa-clock text-indigo-600"></i> 학습 히스토리 &amp; 관리
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">입력된 일별 공부량과 체크리스트 미션 달성률을 한눈에 관리합니다.</p>
+                </div>
+
+                <div id="history-logs-container" class="flex flex-col gap-4 max-h-[520px] overflow-y-auto pr-1 custom-scroll">
+                    </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // 기본 과목 구성상수
+        const SUBJECTS = {
+            korean: { name: '국어', color: 'rose', bg: 'bg-rose-50', border: 'border-rose-100', text: 'text-rose-600', accent: 'bg-rose-500' },
+            english: { name: '영어', color: 'indigo', bg: 'bg-indigo-50', border: 'border-indigo-100', text: 'text-indigo-600', accent: 'bg-indigo-500' },
+            math: { name: '수학', color: 'violet', bg: 'bg-violet-50', border: 'border-violet-100', text: 'text-violet-600', accent: 'bg-violet-500' },
+            science: { name: '과학', color: 'emerald', bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-600', accent: 'bg-emerald-500' }
+        };
+        const DAYS = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+
+        // 로컬 변수 상태 세팅
+        let logs = [];
+        let currentTodos = [];
+        let activeTab = 'total';
+
+        // 페이지 최초 온로드 실행
+        window.addEventListener('DOMContentLoaded', () => {
+            // 오늘 날짜 기본 지정
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            document.getElementById('input-date').value = `${yyyy}-${mm}-${dd}`;
+            handleDateChange();
+
+            // 로컬스토리지 복원
+            try {
+                const saved = localStorage.getItem('study_planner_html_logs');
+                if(saved) {
+                    logs = JSON.parse(saved);
+                }
+            } catch(e) {
+                logs = [];
+            }
+
+            // 엔터키 바인딩
+            document.getElementById('todo-input').addEventListener('keydown', (e) => {
+                if(e.key === 'Enter') {
+                    e.preventDefault();
+                    addTodoItem();
+                }
+            });
+
+            updateUI();
+        });
+
+        // 토스트 표시 함수
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            toastMsg.innerText = msg;
+            
+            if(type === 'error') {
+                toast.classList.remove('bg-slate-900');
+                toast.classList.add('bg-rose-500');
+            } else {
+                toast.classList.remove('bg-rose-500');
+                toast.classList.add('bg-slate-900');
+            }
+
+            toast.classList.remove('scale-0', 'opacity-0');
+            toast.classList.add('scale-100', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('scale-100', 'opacity-100');
+                toast.classList.add('scale-0', 'opacity-0');
+            }, 2500);
+        }
+
+        // 날짜 변동 핸들러
+        function handleDateChange() {
+            const dateVal = document.getElementById('input-date').value;
+            if(!dateVal) return;
+            const d = new Date(dateVal);
+            document.getElementById('input-day').value = DAYS[d.getDay()];
+        }
+
+        // 증감 계산기 조작
+        function adjustTime(subject, amount) {
+            const el = document.getElementById(`time-${subject}`);
+            let val = parseFloat(el.value) || 0;
+            val += amount;
+            if(val < 0) val = 0;
+            el.value = val === 0 ? '' : val.toFixed(1);
+        }
+
+        // 신규 투두 아이템 임시 저장 배열에 추가
+        function addTodoItem() {
+            const input = document.getElementById('todo-input');
+            const text = input.value.trim();
+            if(!text) return;
+
+            currentTodos.push({
+                id: 'todo-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4),
+                text: text,
+                completed: false
+            });
+
+            input.value = '';
+            showToast('할 일이 리스트에 추가되었습니다! 📌');
+            renderCurrentTodos();
+        }
+
+        // 등록 중인 투두 개별 토글
+        function toggleCurrentTodo(id) {
+            currentTodos = currentTodos.map(t => {
+                if(t.id === id) {
+                    const status = !t.completed;
+                    if(status) showToast('미션 완료! 멋집니다 👏');
+                    return { ...t, completed: status };
+                }
+                return t;
+            });
+            renderCurrentTodos();
+        }
+
+        // 등록 중인 투두 개별 삭제
+        function deleteCurrentTodo(id) {
+            currentTodos = currentTodos.filter(t => t.id !== id);
+            renderCurrentTodos();
+        }
+
+        // 입력 폼 내의 투두 그리기
+        function renderCurrentTodos() {
+            const container = document.getElementById('todo-list-container');
+            const badge = document.getElementById('todo-badge');
+            container.innerHTML = '';
+
+            if(currentTodos.length === 0) {
+                badge.classList.add('hidden');
+                container.innerHTML = `<div class="text-center py-4 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-slate-400 text-[11px]">⚠️ 등록된 할 일이 없습니다. 계획을 추가해보세요!</div>`;
+                return;
+            }
+
+            badge.classList.remove('hidden');
+            const completedCount = currentTodos.filter(t => t.completed).length;
+            badge.innerText = `완료 ${completedCount}/${currentTodos.length}개`;
+
+            currentTodos.forEach(todo => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = "flex items-center justify-between gap-3 p-2 bg-white rounded-lg border border-slate-100 shadow-xs transition-all";
+                
+                // 크게 변경된 체크 상자 구조
+                itemDiv.innerHTML = `
+                    <button type="button" onclick="toggleCurrentTodo('${todo.id}')" class="flex items-center gap-2.5 flex-1 text-left group">
+                        <div class="w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition active:scale-90 ${todo.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 bg-white group-hover:border-slate-400'}">
+                            ${todo.completed ? '<i class="fa-solid fa-check text-[10px] stroke-[3px]"></i>' : ''}
+                        </div>
+                        <span class="text-xs font-semibold transition ${todo.completed ? 'line-through text-slate-400 decoration-slate-300' : 'text-slate-700'}">
+                            ${todo.text}
+                        </span>
+                    </button>
+                    <button type="button" onclick="deleteCurrentTodo('${todo.id}')" class="text-slate-300 hover:text-rose-500 p-1 transition">
+                        <i class="fa-solid fa-xmark text-xs"></i>
+                    </button>
+                `;
+                container.appendChild(itemDiv);
+            });
+        }
+
+        // 저장 완료 히스토리 내부 리스트 체크박스 토글 지원
+        function toggleHistoryTodo(logId, todoId) {
+            logs = logs.map(log => {
+                if(log.id === logId) {
+                    const updatedTodos = log.todos.map(t => {
+                        if(t.id === todoId) return { ...t, completed: !t.completed };
+                        return t;
+                    });
+                    return { ...log, todos: updatedTodos };
+                }
+                return log;
+            });
+            saveAndRefresh();
+        }
+
+        // 새로운 로그 메인 목록 누적 처리
+        function submitLogData() {
+            const dateVal = document.getElementById('input-date').value;
+            const dayVal = document.getElementById('input-day').value;
+
+            const koreanTime = parseFloat(document.getElementById('time-korean').value) || 0;
+            const englishTime = parseFloat(document.getElementById('time-english').value) || 0;
+            const mathTime = parseFloat(document.getElementById('time-math').value) || 0;
+            const scienceTime = parseFloat(document.getElementById('time-science').value) || 0;
+
+            const total = koreanTime + englishTime + mathTime + scienceTime;
+            if(total === 0) {
+                showToast('공부 시간을 30분(0.5시간) 이상 입력해주세요.', 'error');
+                return;
+            }
+
+            if(logs.some(l => l.date === dateVal)) {
+                showToast('해당 날짜에 이미 등록된 피드가 존재합니다.', 'error');
+                return;
+            }
+
+            const newEntry = {
+                id: 'log-' + Date.now(),
+                date: dateVal,
+                dayOfWeek: dayVal,
+                times: { korean: koreanTime, english: englishTime, math: mathTime, science: scienceTime },
+                todos: [...currentTodos]
+            };
+
+            logs.unshift(newEntry);
+            // 날짜 최신순 정렬
+            logs.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            // 데이터 클리어 후 갱신
+            document.getElementById('time-korean').value = '';
+            document.getElementById('time-english').value = '';
+            document.getElementById('time-math').value = '';
+            document.getElementById('time-science').value = '';
+            currentTodos = [];
+            
+            renderCurrentTodos();
+            saveAndRefresh();
+            showToast('공부 시간과 할 일 리스트가 저장 보관소에 기록되었습니다! 🚀');
+        }
+
+        // 개별 일지 기록 소거
+        function deleteLog(id) {
+            if(!confirm('해당 일자의 공부 기록을 영구 삭제하시겠습니까?')) return;
+            logs = logs.filter(l => l.id !== id);
+            saveAndRefresh();
+            showToast('학습 데이터가 삭제되었습니다.');
+        }
+
+        // 스토리지 세이브 후 전방위 다시 그리기
+        function saveAndRefresh() {
+            localStorage.setItem('study_planner_html_logs', JSON.stringify(logs));
+            updateUI();
+        }
+
+        // 대시보드 탭 스위칭 토글러
+        function switchTab(tabKey) {
+            activeTab = tabKey;
+            const tabTotal = document.getElementById('tab-total');
+            const tabWeekly = document.getElementById('tab-weekly');
+            const contentTotal = document.getElementById('content-tab-total');
+            const contentWeekly = document.getElementById('content-tab-weekly');
+
+            if(tabKey === 'total') {
+                tabTotal.className = "flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-white text-slate-900 shadow-xs";
+                tabWeekly.className = "flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-500 hover:text-slate-800";
+                contentTotal.classList.remove('hidden');
+                contentWeekly.classList.add('hidden');
+            } else {
+                tabWeekly.className = "flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-white text-slate-900 shadow-xs";
+                tabTotal.className = "flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition text-slate-500 hover:text-slate-800";
+                contentWeekly.classList.remove('hidden');
+                contentTotal.classList.add('hidden');
+            }
+            updateUI();
+        }
+
+        // 연도 내 주차 식별 연산함수
+        function getWeekDetails(dateString) {
+            const date = new Date(dateString);
+            const day = date.getDay();
+            const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+            const monday = new Date(date.setDate(diff));
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+
+            const firstDay = new Date(monday.getFullYear(), 0, 1);
+            const pastDays = (monday - firstDay) / 86400000;
+            const weekNum = Math.ceil((pastDays + firstDay.getDay() + 1) / 7);
+
+            const fmt = (d) => `${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+            return {
+                id: `${monday.getFullYear()}-W${weekNum}`,
+                label: `${monday.getFullYear()}년 ${monday.getMonth()+1}월 ${Math.ceil(monday.getDate()/7)}주차`,
+                range: `${fmt(monday)} ~ ${fmt(sunday)}`,
+                mondayTime: monday.getTime()
+            };
+        }
+
+        // 데이터 동적 바인딩 종합 실행기
+        function updateUI() {
+            // 1. 계산용 집계
+            let overallHours = 0;
+            let sumSubj = { korean: 0, english: 0, math: 0, science: 0 };
+            let weeklyGroup = {};
+
+            logs.forEach(log => {
+                const k = log.times.korean || 0;
+                const e = log.times.english || 0;
+                const m = log.times.math || 0;
+                const s = log.times.science || 0;
+
+                sumSubj.korean += k;
+                sumSubj.english += e;
+                sumSubj.math += m;
+                sumSubj.science += s;
+                overallHours += (k + e + m + s);
+
+                // 주간용 파싱
+                const wk = getWeekDetails(log.date);
+                if(!weeklyGroup[wk.id]) {
+                    weeklyGroup[wk.id] = { id: wk.id, label: wk.label, range: wk.range, timeWeight: wk.mondayTime, korean:0, english:0, math:0, science:0, total:0 };
+                }
+                weeklyGroup[wk.id].korean += k;
+                weeklyGroup[wk.id].english += e;
+                weeklyGroup[wk.id].math += m;
+                weeklyGroup[wk.id].science += s;
+                weeklyGroup[wk.id].total += (k + e + m + s);
+            });
+
+            // 상단 좌측 패널값 대입
+            document.getElementById('panel-overall-hours').innerText = overallHours.toFixed(1);
+            const textPanel = document.getElementById('panel-summary-text');
+            if(logs.length > 0) {
+                textPanel.innerHTML = `기록된 총 학습 일수는 <strong class="text-emerald-300">${logs.length}일</strong> 입니다. 평균적으로 하루에 약 <strong class="text-emerald-200">${(overallHours / logs.length).toFixed(1)}시간</strong>씩 몰입하고 있습니다.`;
+                document.getElementById('btn-mock-data').classList.add('hidden');
+            } else {
+                textPanel.innerText = "기록된 총 학습 데이터가 없습니다. 왼쪽 폼에서 오늘의 공부 시간 입력을 시작해보세요!";
+                document.getElementById('btn-mock-data').classList.remove('hidden');
+            }
+
+            // 2. 전체 통계 탭 렌더러
+            const totalGrid = document.getElementById('total-stats-grid');
+            totalGrid.innerHTML = '';
+            if(logs.length === 0) {
+                totalGrid.className = "block text-center py-12 text-slate-400";
+                totalGrid.innerHTML = `
+                    <i class="fa-solid fa-circle-exclamation text-4xl text-slate-200 mb-2"></i>
+                    <p class="text-sm font-medium">데이터가 누적되지 않았습니다.</p>
+                `;
+            } else {
+                totalGrid.className = "grid grid-cols-1 sm:grid-cols-2 gap-4";
+                Object.entries(SUBJECTS).forEach(([key, conf]) => {
+                    const time = sumSubj[key] || 0;
+                    const percent = overallHours > 0 ? Math.round((time / overallHours) * 100) : 0;
+                    totalGrid.innerHTML += `
+                        <div class="p-4 rounded-2xl border ${conf.border} ${conf.bg} flex flex-col gap-3 relative overflow-hidden">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-slate-500">${conf.name} 총 누적</span>
+                                <span class="text-xs font-extrabold ${conf.text} px-2 py-0.5 rounded-full bg-white border border-slate-100">비중 ${percent}%</span>
+                            </div>
+                            <div class="flex items-baseline gap-1 mt-1">
+                                <span class="text-3xl font-black text-slate-900">${time.toFixed(1)}</span>
+                                <span class="text-xs font-bold text-slate-500">시간</span>
+                            </div>
+                            <div class="w-full bg-white/80 rounded-full h-2.5 overflow-hidden border border-slate-100 mt-1">
+                                <div class="h-full ${conf.accent} transition-all duration-500" style="width: ${Math.min(percent || 1, 100)}%"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            // 3. 주간 단위 누적 탭 렌더러
+            const weeklyList = document.getElementById('weekly-stats-list');
+            weeklyList.innerHTML = '';
+            const sortedWeeks = Object.values(weeklyGroup).sort((a,b) => b.timeWeight - a.timeWeight);
+            if(sortedWeeks.length === 0) {
+                weeklyList.innerHTML = `<div class="text-center py-12 text-slate-400"><p class="text-sm font-medium">기록된 주차별 통계 데이터가 없습니다.</p></div>`;
+            } else {
+                sortedWeeks.forEach(wk => {
+                    let subjectRows = '';
+                    Object.entries(SUBJECTS).forEach(([sKey, conf]) => {
+                        const sTime = wk[sKey] || 0;
+                        const rowPercent = wk.total > 0 ? Math.round((sTime / wk.total) * 100) : 0;
+                        subjectRows += `
+                            <div class="flex items-center justify-between gap-4">
+                                <div class="w-10 text-xs font-bold text-slate-600">${conf.name}</div>
+                                <div class="flex-1 bg-white border border-slate-100 rounded-full h-4 overflow-hidden relative">
+                                    <div class="h-full ${conf.accent} rounded-full" style="width: ${rowPercent}%"></div>
+                                </div>
+                                <div class="w-14 text-right">
+                                    <span class="text-xs font-extrabold text-slate-900">${sTime.toFixed(1)}</span>
+                                    <span class="text-[10px] text-slate-400 ml-0.5">h</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    weeklyList.innerHTML += `
+                        <div class="border border-slate-200/60 rounded-2xl p-5 bg-slate-50/50">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/50 pb-3 mb-4">
+                                <div>
+                                    <span class="text-sm font-bold text-slate-900">${wk.label}</span>
+                                    <span class="text-xs text-slate-500 ml-2">(${wk.range})</span>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <span class="text-xs font-medium text-slate-500">주간 총합:</span>
+                                    <span class="text-sm font-black text-indigo-600">${wk.total.toFixed(1)}시간</span>
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-3">${subjectRows}</div>
+                        </div>
+                    `;
+                });
+            }
+
+            // 4. 하단 히스토리 피드 가변 템플릿 처리
+            const historyContainer = document.getElementById('history-logs-container');
+            historyContainer.innerHTML = '';
+            if(logs.length === 0) {
+                historyContainer.innerHTML = `
+                    <div class="py-12 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 gap-2">
+                        <i class="fa-solid fa-circle-exclamation text-2xl text-slate-300"></i>
+                        <p class="text-xs font-medium">작성된 일일 공부 기록이 존재하지 않습니다.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            logs.forEach(log => {
+                const daySum = (log.times.korean||0)+(log.times.english||0)+(log.times.math||0)+(log.times.science||0);
+                const tList = log.todos || [];
+                const dCount = tList.filter(x => x.completed).length;
+
+                // 과목 시간 서브 배지 빌드
+                let gridTimeBadges = '';
+                Object.entries(SUBJECTS).forEach(([sk, sConf]) => {
+                    const hours = log.times[sk] || 0;
+                    gridTimeBadges += `
+                        <div class="flex flex-col p-2 rounded-lg ${sConf.bg} border ${sConf.border}">
+                            <span class="text-[10px] font-bold text-slate-400">${sConf.name}</span>
+                            <span class="text-sm font-black text-slate-900 mt-0.5">${hours.toFixed(1)}<span class="text-[10px] font-medium text-slate-500 ml-0.5">h</span></span>
+                        </div>
+                    `;
+                });
+
+                // 저장 완료된 목록의 체크리스트 항목 요소 스트링화
+                let todoItemsMarkup = '';
+                if(tList.length > 0) {
+                    tList.forEach(t => {
+                        todoItemsMarkup += `
+                            <button type="button" onclick="toggleHistoryTodo('${log.id}', '${t.id}')" class="flex items-center gap-2 p-1.5 bg-white rounded-md border border-slate-100 hover:border-slate-200 text-left transition select-none">
+                                <div class="w-4 h-4 rounded border flex items-center justify-center shrink-0 text-xs ${t.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 bg-white'}">
+                                    ${t.completed ? '<i class="fa-solid fa-check text-[9px] stroke-[3px]"></i>' : ''}
+                                </div>
+                                <span class="text-[11px] font-medium truncate ${t.completed ? 'line-through text-slate-400' : 'text-slate-600'}">
+                                    ${t.text}
+                                </span>
+                            </button>
+                        `;
+                    });
+                } else {
+                    todoItemsMarkup = `<div class="text-[11px] text-slate-400 italic">📋 이 날은 함께 첨부되어 들어온 투두 미션이 없습니다.</div>`;
+                }
+
+                const card = document.createElement('div');
+                card.className = "p-4 rounded-xl border border-slate-200 hover:border-slate-300 transition bg-white";
+                card.innerHTML = `
+                    <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-2 mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-bold text-slate-900">${log.date}</span>
+                            <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-semibold">${log.dayOfWeek}</span>
+                        </div>
+                        <button onclick="deleteLog('${log.id}')" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg transition" title="기록삭제">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                        ${gridTimeBadges}
+                    </div>
+
+                    <div class="bg-slate-50/80 rounded-xl p-3 border border-slate-200/60 flex flex-col gap-1.5 mb-2.5">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                                <i class="fa-regular fa-square-check text-indigo-500 text-xs"></i> 공부 미션 달성 현황 (체크칸 클릭 연동)
+                            </span>
+                            ${tList.length > 0 ? `<span class="text-[10px] font-extrabold text-indigo-600 bg-white border border-slate-200 px-1.5 py-0.5 rounded">${dCount} / ${tList.length} 완료</span>` : ''}
+                        </div>
+                        <div class="${tList.length > 0 ? 'grid grid-cols-1 sm:grid-cols-2 gap-1.5' : 'block'}">
+                            ${todoItemsMarkup}
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end text-xs text-slate-500 pt-1 border-t border-slate-100/60">
+                        <span class="font-bold text-slate-900">총합 시간: <span class="text-indigo-600 font-extrabold">${daySum.toFixed(1)}시간</span></span>
+                    </div>
+                `;
+                historyContainer.appendChild(card);
+            });
+        }
+
+        // 목데이터 집어넣기
+        function loadMockData() {
+            const today = new Date();
+            const samples = [];
+            const sampleTodosGroup = [
+                ['국어 수능 특강 독해 파트 완독', '영단어 고난도 50개 암기 테스트', '수학 쎈 오답 유사문항 정독 풀이', '과학 하이탑 인강 2강 듣기'],
+                ['국어 비문학 지문 3개 오답노트', '영어 듣기평가 실전모의 1회', '수학 확통 단원평가 기출 오답 변형', '화학 반응식 백지 복습'],
+                ['현대 소설 핵심 시놉시스 분석', '영어 모의고사 구문 해석 연습', '미적분 계산 실수 보정 10문제', '생명과학 유전 가계도 3문항 해결']
+            ];
+
+            for(let i=0; i<8; i++) {
+                const targetDate = new Date(today);
+                targetDate.setDate(today.getDate() - i);
+                const isWeekend = targetDate.getDay() === 0 || targetDate.getDay() === 6;
+                const weight = isWeekend ? 1.6 : 0.9;
+
+                const dateString = targetDate.toISOString().split('T')[0];
+                const pool = sampleTodosGroup[i % sampleTodosGroup.length];
+                const mockTodos = pool.map((text, idx) => ({
+                    id: `mock-t-${i}-${idx}`,
+                    text: text,
+                    completed: Math.random() > 0.4
+                }));
+
+                samples.push({
+                    id: 'mock-log-' + i,
+                    date: dateString,
+                    dayOfWeek: DAYS[targetDate.getDay()],
+                    times: {
+                        korean: parseFloat((Math.random() * 2 * weight + 0.2).toFixed(1)),
+                        english: parseFloat((Math.random() * 1.5 * weight + 0.3).toFixed(1)),
+                        math: parseFloat((Math.random() * 3 * weight + 0.5).toFixed(1)),
+                        science: parseFloat((Math.random() * 1.8 * weight).toFixed(1))
+                    },
+                    todos: mockTodos
+                });
+            }
+
+            logs = samples;
+            saveAndRefresh();
+            showToast('샘플 학습 일지 데이터 8일 치가 입고되었습니다! 🚀');
+        }
+
+        // 전체 초기화
+        function resetAllData() {
+            if(!confirm('주의: 축적된 모든 공부 시간 데이터 및 투두 정보가 영구 삭제됩니다. 진행하시겠습니까?')) return;
+            logs = [];
+            currentTodos = [];
+            localStorage.removeItem('study_planner_html_logs');
+            renderCurrentTodos();
+            saveAndRefresh();
+            showToast('모든 정보가 리셋 삭제되었습니다.', 'error');
+        }
+    </script>
+</body>
+</html>
